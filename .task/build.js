@@ -21,13 +21,14 @@ const variants = {
 	esm: {
 		extension: 'mjs',
 		async transform(code, smap) {
-			return await minify(code, {
-				sourceMap: { content: smap },
-				compress: true,
-				module: true,
-				mangle: true,
-				toplevel: true,
-			})
+			// return await minify(code, {
+			// 	sourceMap: { content: smap },
+			// 	compress: false,
+			// 	module: true,
+			// 	mangle: false,
+			// 	toplevel: false,
+			// })
+			return {code}
 		},
 	},
 	cjs: {
@@ -38,14 +39,15 @@ const variants = {
 			transformModulesToCJS(cjsast)
 			transformOptionalCatchToParam(cjsast)
 			transformDestructuring(cjsast)
+			return {code:cjsast.toString()}
 
-			return await minify(cjsast.toString(), {
-				sourceMap: { content: smap },
-				compress: true,
-				module: true,
-				mangle: true,
-				toplevel: true,
-			})
+			// return await minify(cjsast.toString(), {
+			// 	sourceMap: { content: smap },
+			// 	compress: false,
+			// 	module: true,
+			// 	mangle: false,
+			// 	toplevel: false,
+			// })
 		},
 	},
 	gjs: {
@@ -54,14 +56,16 @@ const variants = {
 			let cjsast = js.parse(code)
 
 			transformIIFE(cjsast)
+			return {code:cjsast.toString()}
 
-			return await minify(cjsast.toString(), {
-				sourceMap: { content: smap },
-				compress: true,
-				module: true,
-				mangle: true,
-				toplevel: true,
-			})
+
+			// return await minify(cjsast.toString(), {
+			// 	sourceMap: { content: smap },
+			// 	compress: false,
+			// 	module: true,
+			// 	mangle: false,
+			// 	toplevel: false,
+			// })
 		},
 	},
 }
@@ -88,7 +92,7 @@ export const build = async (packageUrl, opts) => {
 			bundle: true,
 			external: ['react'],
 			format: 'esm',
-			sourcemap: 'external',
+			sourcemap: 'inline',
 			write: false,
 		})
 
@@ -108,16 +112,17 @@ export const build = async (packageUrl, opts) => {
 		for (const variant in variants) {
 			const variantInfo = variants[variant]
 			const variantPath = new URL(`dist/index.${variantInfo.extension}`, packageUrl).pathname
+			console.log('variantInfo.extension', variantInfo.extension)
 
 			let { code: variantCode } = await variantInfo.transform(code, smap)
 
-			const variantMins = (Buffer.byteLength(variantCode) / 1000).toFixed(2)
-			const variantGzip = Number(zlib.gzipSync(variantCode, { level: 9 }).length / 1000).toFixed(2)
+			// const variantMins = (Buffer.byteLength(variantCode) / 1000).toFixed(2)
+			// const variantGzip = Number(zlib.gzipSync(variantCode, { level: 9 }).length / 1000).toFixed(2)
 
-			size.types[variant] = {
-				min: variantMins,
-				gzp: variantGzip,
-			}
+			// size.types[variant] = {
+			// 	min: variantMins,
+			// 	gzp: variantGzip,
+			// }
 
 			await fs.writeFile(variantPath, variantCode + `\n//# sourceMappingUrl=index.map`)
 		}
@@ -154,10 +159,12 @@ if (isProcessMeta(import.meta)) {
 				// exec
 				`--exec "${['node', './.task/build.js', ...onlyArgs].join(' ')}"`,
 			].join(' '),
-		).on('start', () => {
-			process.stdout.write('\u001b[3J\u001b[2J\u001b[1J')
-			console.clear()
-		}).on('quit', () => process.exit())
+		)
+			.on('start', () => {
+				process.stdout.write('\u001b[3J\u001b[2J\u001b[1J')
+				console.clear()
+			})
+			.on('quit', () => process.exit())
 	} else {
 		buildAll({
 			only: getProcessArgOf('only'),
